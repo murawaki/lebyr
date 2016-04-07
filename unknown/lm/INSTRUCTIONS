@@ -1,0 +1,105 @@
+########################################
+#                                      #
+#          検出対象語彙の選定          #
+#                                      #
+########################################
+
+[ 辞書のコンパイル を済ませておく ]
+
+1. 辞書から使える代表表記の一覧を抽出
+   perl ~/research/unknown/lm/selectContentW.pl --output ~/research/lebyr/data/repnames.storable
+
+2. 検出対象表記のデータ構造を構築
+   perl ~/research/unknown/lm/buildRepnameList.pl --repnames ~/research/lebyr/data/repnames.storable --output ~/research/lebyr/data/cfRepname.storable
+
+
+
+########################################
+#                                      #
+#           言語モデルの構築           #
+#                                      #
+########################################
+
+1. lm/buildContentWLM.pl を対象文書に適用して N-gram などをカウント
+  tsukuba000:/data/0/murawaki/lm 以下に一式
+
+2. lm/mergeLM.pl でカウント結果の第一段階マージ
+  tsukuba000:/data/0/murawaki/lm/merge 以下に一式
+
+3. lm/mergeLM.pl でカウント結果全体をマージ
+  tsukuba や kyutech など、32GB メモリを積んだマシンならいける。
+  データが置いてある場所でメモリが十分でない場合には、sshfs でデータを読み出す。
+  perl ~/research/unknown/lm/mergeLM.pl --dir mnt/data --ngram --notri --debug --output data/lm_all.storable
+
+4. 適当な出現頻度で足きりしてデータを圧縮
+  perl ~/research/unknown/lm/mergeLM.pl --dir data --ngram --notri --debug --thres 10 --compact --output lm_all_10.storable
+
+[ 検出対象語彙の選定 を済ませておく ]
+
+5. 代表表記 N-gram を構築
+  perl ~/research/unknown/lm/abstractLM.pl --input lm_all_10.storable --notri --debug --output repnameNgram.storable
+
+
+
+
+########################################
+#                                      #
+#      検出の評価実験に必要な準備      #
+#                                      #
+########################################
+
+# /work/murawaki/xmls.random の文書から抽出
+perl extractSeletences.pl --dir /vine5/murawaki/random --debug | gzip -c > /vine5/murawaki/eval/detect/raw.gz
+
+
+# sort, uniq
+gzip -dc /vine5/murawaki/eval/detect/raw.gz | grep -v "^#" | sort | uniq | gzip -c > /vine5/murawaki/eval/detect/raw.uniq.gz
+
+
+# filtering
+gzip -dc /vine5/murawaki/eval/detect/raw.uniq.gz | perl filterSentences.pl| gzip -c > /vine5/murawaki/eval/detect/raw.uniq.filtered.gz
+
+
+# juman
+gzip -dc /vine5/murawaki/eval/detect/raw.uniq.filtered.gz | nkf -eW | juman > /vine5/murawaki/eval/detect/raw.uniq.filtered.jmn
+
+
+# knp -> gxp を利用
+nice -19 sh ~/research/test/eval/parse-comp.sh raw.uniq.filtered.jmn
+gzip raw.uniq.filtered.knp
+
+
+# compile detection rule
+perl /home/murawaki/unknown/compileRule.pl --input undef.rule --output undef.storable
+
+
+# compile simple extraction rule
+perl /home/murawaki/unknown/compileRule.pl --input undef2.rule --output undef2.storable
+
+
+# extract corpus bigram
+perl kyotocorpus.pl --output kyotocorpus.storable | nkf -eWu
+
+
+# tagging by simple rules
+zcat /vine5/murawaki/eval/detect/raw.uniq.filtered.knp.gz | nkf -wE | nice -19 perl makeTaggedSentence.pl > /vine5/murawaki/eval/detect/detect.raw
+
+
+# manual correction
+detect.raw -> detect.tagged
+
+
+# rule は文頭 skip を除いたもの
+# 比較の際には、UnknownWordDetector のオプションを変えて実行
+cat /vine5/murawaki/eval/detect/detect.tagged | nice -19 perl recall.pl --ngram > recall.ngram.raw
+cat /vine5/murawaki/eval/detect/detect.tagged | nice -19 perl recall.pl --ngram --smoothing > recall.ngram.smoothing
+cat /vine5/murawaki/eval/detect/detect.tagged | nice -19 perl recall.pl --nongram > recal.rule
+
+# precision の評価には precision.pl を用いる
+# 評価は人で行なう
+zcat /vine5/murawaki/eval/detect/raw.uniq.filtered.knp.gz | nkf -wE | perl ~/research/unknown/lm/eval/precision.pl --nongram --random=500 > precision.eval.raw
+zcat /vine5/murawaki/eval/detect/raw.uniq.filtered.knp.gz | nkf -wE | perl ~/research/unknown/lm/eval/precision.pl --ngram --smoothing --random=500 > precision.eval.ngram.smoothing
+
+
+# カタカナを除いて評価
+~/research/unknown/eval/jumanDiffSeqEval.pl --nokatakana --input XYZ.html --count N > XYZ.eval.html

@@ -1,0 +1,62 @@
+########################################
+#                                      #
+#      語彙獲得の実行に必要な準備      #
+#                                      #
+########################################
+
+
+#
+# 辞書のコンパイル
+#
+makedic.pl --inputdir ~/download/juman/dic --outputdir ~/research/lebyr/data
+
+
+#
+# 未知語ルールのコンパイル
+#
+perl compileRule.pl --input undef.rule --output ~/research/lebyr/data/undefRule.storable
+
+
+#
+# suffix の構築
+#
+see suffix/INSTRUCTIONS
+
+
+#
+# 言語モデルの構築
+#
+see lm/INSTRUCTIONS
+
+
+#
+# 小規模 (1000ページ程度) テキストからの辞書構築
+#
+1. 処理内容を /vine5/murawaki/spec/[NAME].spec に記述
+  TSUBAKI へのクエリ、データをキャッシュするディレクトリなど
+
+2. gxp make で実行
+  seq は未知語獲得まで、diff は獲得語彙による解析結果の差分もとる
+  cd /vine5/murawaki/spec; gxpc make -j
+
+3. 獲得結果を archiving する場合には
+  cd /vine5/murawaki/spec; make log ARCHDIR=[DATE]
+
+
+
+#
+# 大規模テキストからの辞書構築
+#
+1. sequential.pl を1万文書のブロックにかける。これを 1 万並列で行なう。
+  tsukuba000:/data/0/murawaki/parallel 以下に一式
+
+2. getDF.pl で、獲得された辞書を使ってもう一度 1 万文書を解析して DF などの情報を取得
+  tsukuba000:/data/0/murawaki/parallel/df 以下に一式
+
+3. mergeDicts.pl で獲得された辞書を単純にマージ
+  ファイル list にマージ対象の辞書一覧を記述
+  perl ~/research/unknown/mergeDicts.pl --list list --debug --output all.dic
+
+4. postprocess.pl で辞書の後処理を実行
+  df_thres は DF により足きり
+  perl ~/research/unknown/postprocess.pl --input /vine5/murawaki/parallel/[DATE]/all.dic --df_thres [N] --dicdir /vine5/murawaki/parallel/dic --unihan ~/research/lebyr/data/unihan.storable --debug > /vine5/murawaki/parallel/NNN/postprocess.log.df[N] ; cp /vine6/murawaki/parallel/dic/output.dic /vine5/murawaki/parallel/[DATA]/filtered.dic.df[N]

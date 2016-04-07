@@ -1,0 +1,125 @@
+########################################
+#                                      #
+#                下構築                #
+#                                      #
+########################################
+
+格解析は非常におそいので、先に格解析結果を作っておく。
+   tsukuba000:/data/0/murawaki/knp 以下に一式
+=> やっぱり格解析はやらないことにする
+
+########################################
+#                                      #
+#              データの構築            #
+#                                      #
+########################################
+
+1. noun/extract.pl を対象文書に適用して
+   名詞と素性のデータを抽出
+   オプションは --both。自動獲得された語には見出しの後ろに * が付く。
+   格解析結果を対象とする場合には --knpdata=PATH を指定
+   tsukuba000:/data/0/murawaki/cfdpnd 以下に一式
+
+2. noun/aggregate-features.pl を抽出されたデータに適用し素性を抽出
+   規模が大きい場合には --start=NUM --end=NUM で範囲指定。
+
+[小規模な場合は省略]
+3. noun/merge-features.pl で素性データをマージ
+
+4. noun/merge-features.pl で --id オプションを付けて、
+   頻度のリストを ID のリスト (fDB) に変換。
+   ついでに頻度で足きり
+  nice -19 perl ~/research/lebyr/noun/merge-features.pl --input all --thres=2 --id --output fDB.2 --debug
+
+5. noun/aggregate-domain.pl で名詞をまとめて事例にする
+   tsukuba000:/data/0/murawaki/cfdpnd/agg 以下に一式
+  perl ~/research/lebyr/noun/aggregate-domain.pl --debug --compressed --fDB=/data/0/murawaki/cfdpnd/flist/fDB.2 --dir=/data/0/murawaki/cfdpnd/data --debug --start=0 --end=249 --output=/data/0/murawaki/cfdpnd/agg/data/00
+
+
+########################################
+#                                      #
+#       フィルタリングデータの構築     #
+#                                      #
+########################################
+
+
+0. noun/extract-stop-ne.pl を用いてよく NE になる普通名詞を抽出
+   tsukuba000:/data/0/murawaki/knpne 以下に一式
+
+   ここから neStop.rank を作成
+
+
+########################################
+#                                      #
+#           訓練データの作成           #
+#                                      #
+########################################
+
+1. インスタンスデータを訓練データをテストデータに分離 ???
+   perl ~/research/lebyr/noun/split-acquired.pl --input all.bz2 --compressed 2> acquired.raw | bzip2 -c > registered.raw.bz2
+
+2. 頻度の高い名詞を抽出
+  bzcat registered.raw.bz2 | perl -MDumpvalue -e 'while(<>){$c=(split /\s+/, $_, 2)[0];if($c=~/^\$(.+)/){$c=$1;}$a{$c}++;}map {printf "%d %s\n", $a{$_}, $_;} keys(%a);' | sort -k1nr > sorted
+
+3. noun/filter-train.pl で訓練データから曖昧性のある候補を除外
+
+  perl ~/research/lebyr/noun/filter-train.pl --input registered.raw.bz2 --compressed --ngword --stopNE neStop.rank --freqList=sorted | bzip2 -c > registered.filtered.bz2
+
+4. noun/train-mp.pl でモデルを構築
+   type に mp, map, pa, cw のいずれかを指定
+
+  perl ~/research/lebyr/noun/train-mp.pl --iter=5 --length=9 --debug --type=mp --input registered.filtered.bz2 --compressed --output all.mp 2> all.mp.log
+
+
+########################################
+#                                      #
+#           評価データの作成           #
+#                                      #
+########################################
+
+1. 評価データを選択
+  perl ~/research/lebyr/noun/eval/rand-split.pl 131264 500 acquired.raw > acquired.raw.eval
+
+2. 評価データを dump
+perl ~/research/lebyr/noun/show-train.pl --fDB ~/data/noun/fs9/fDB.100 --input ~/data/noun/fs9/acquired.raw.eval > acquired.raw.dump
+
+3. dump データを見ながら人手でラベルを修正
+   acquired.raw.eval が得られるファイル
+
+
+########################################
+#                                      #
+#        ablation データの作成         #
+#                                      #
+########################################
+
+1. noun/make-ablation-data.pl で欠損データを作成
+   ディレクトリ ablation 以下に出力される
+  perl ~/research/lebyr/noun/make-ablation-data.pl --input registered.filtered.bz2 --fDB fDB.100 --compressed --compress --outputdir ablation
+
+2. 訓練データ分割用の名詞リスト構築
+
+** TODO: ちゃんとスクリプトにする **
+
+  bzcat registered.filtered.bz2 | perl -MDumpvalue -e 'while(<>){$c=(split /\s+/, $_, 2)[0];if($c=~/^\$(.+)/){$c=$1;}$a{$c}++;}map {printf "%d %s\n", $a{$_}, $_;} keys(%a);' | sort -k1nr > sorted.filtered &
+
+python
+f = open('sorted.filtered')
+import random
+l = f.readlines()
+f.close()
+random.shuffle(l)
+f = open('sorted.filtered.shuffle', 'w')
+for l2 in l: f.write(l2)
+f.close()
+
+head -n 2000 sorted.filtered.shuffle | awk '{print $2}' > split_mrph_list
+
+
+
+3. あとは make で進むように書いてある
+
+  やることは
+  1. split-data.pl で訓練データを訓練データとテストデータに分割
+  2. train-mp.pl で訓練データから学習
+  3. classify.pl でテストデータを使って分類器を評価

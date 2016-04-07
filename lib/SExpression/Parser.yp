@@ -1,0 +1,141 @@
+# -*- mode: perl -*-
+#
+# Parser.yp
+#
+# Grammar to parse SExpressions for Data::SExpression
+#
+#
+
+%{
+use SExpression::Cons;
+%}
+
+%%
+
+sexpression:  #empty
+            | expression			 { $_[0]->YYAccept; return $_[1]; }
+;
+
+expression:   NUMBER
+            | SYMBOL                     { $_[0]->handler->new_symbol($_[1]) }
+            | STRING                     { $_[0]->handler->new_string($_[1]) }
+            | list
+#            | quoted
+;
+
+list:       '(' list_interior ')'        { $_[2] }
+;
+
+
+list_interior:
+              expression '.' expression  { $_[0]->handler->new_cons($_[1], $_[3]) }
+            | expression list_interior   { $_[0]->handler->new_cons($_[1], $_[2]) }
+            | expression                 { $_[0]->handler->new_cons($_[1], undef) }
+
+;
+
+# quoted:
+#               QUOTE expression           { $_[0]->handler->new_cons($_[0]->handler->new_symbol($_[1]),
+#                                                                     $_[0]->handler->new_cons($_[2], undef))}
+# ;              
+
+%%
+
+sub set_input {
+    my $self = shift;
+    my $input = shift or die(__PACKAGE__ . "::set_input called with 0 arguments");
+    $self->YYData->{INPUT} = $input;
+}
+
+sub set_handler {
+    my $self = shift;
+    my $handler = shift or die(__PACKAGE__ . "::set_handler called with 0 arguments");
+    $self->YYData->{HANDLER} = $handler;
+}
+
+sub handler {
+    my $self = shift;
+    return $self->YYData->{HANDLER};
+}
+
+sub unparsed_input {
+    my $self = shift;
+    return substr($self->YYData->{INPUT}, pos($self->YYData->{INPUT}));
+}
+
+
+my %quotes = (q{'} => 'quote',
+              q{`} => 'quasiquote',
+              q{,} => 'unquote');
+
+
+sub lexer {
+    my $self = shift;
+
+    $self->YYData->{INPUT} or return ('', undef);
+
+#     my $symbol_char = qr{[*!\$[:alpha:]\p{Hiragana}\p{Katakana}\p{Han}\?<>=/+:_{}-]};
+#    my $symbol_char = qr{[*!\$\p{InNonNumControl}\p{InCJKSymbolsAndPunctuation}\?<>=/+:_{}-]};
+#    my $symbol_char = qr{([*!\$[:alpha:]\?<>=/+:_{}-]|\p{InCJKSymbolsAndPunctuation}|\p{InHalfwidthAndFullwidthForms}|\p{InLatin1Supplement}|\p{InLetterlikeSymbols}|\p{InHiragana}|\p{InKatakana})};
+
+    for($self->YYData->{INPUT}) {
+	# \s だと全角スペースもマッチするので [ \t\n\r] を使う
+        $_ =~ /\G [ \t\n\r]* (?: ; .* [ \t\n\r]* )* /gcx;   # ignore comment
+
+	# \d では全角数字も認識されてしまうので駄目
+        /\G ([+-]? [0-9]+ (?:[.][0-9]*)?) /gcx
+        || /\G ([+-]? [.] [0-9]+) /gcx
+          and return ('NUMBER', $1);
+
+	# 記号の扱いがうっとうしい
+	my $str = $_;
+	my $symbol = '';
+	my $sym_re = qr{[*!\$\?<>=/+:_{}-]};
+	my $pos = pos;
+	my $i = $pos;
+	while (1) {
+	    my $c = substr ($str, $i, 1);
+	    my $o = ord ($c);
+
+	    if ($c =~ /$sym_re/ || $o >= 0x0080) {
+		$symbol .= $c;
+	    } elsif ($i > $pos && $c =~ /\d|\./) {
+		$symbol .= $c;
+	    } else {
+		last;
+	    }
+	    last unless (++$i < length ($str));
+	}
+	if (length ($symbol)) {
+	    pos = $i;
+	    return ('SYMBOL', $symbol);
+	}
+	pos = $pos;
+
+        /\G (\| [^|]* \|) /gcx
+          and return ('SYMBOL', $1);
+
+        /\G " ([^"\\]* (?: \\. [^"\\]*)*) "/gcx
+          and return ('STRING', $1 || "");
+
+        /\G ([().])/gcx
+          and return ($1, $1);
+
+#         /\G ([`',]) /gcx
+#           and return ('QUOTE', $quotes{$1});
+
+        return ('', undef);
+    }
+}
+
+sub error {
+    my $self = shift;
+    my ($tok, $val) = $self->YYLexer->($self);
+    die("Parse error near: '" . $self->unparsed_input . "'");
+    return undef;
+}
+
+sub parse {
+    my $self = shift;
+    return $self->YYParse(yylex => \&lexer, yyerror => \&error);
+}

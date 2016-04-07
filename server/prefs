@@ -1,0 +1,22 @@
++{
+    'egnee.host' => 'orchid37',
+    'egnee.port' => 10956,
+
+    'main.debug' => 1,
+    'main.acquisition' => 1,
+    'main.safe-mode' => 1,
+    'stem-finder.safe-mode' => 0,
+    'standardformat-document.use-knp-annotation' => 0,
+    'unknown-word-detector.use-ngram' => 1,
+    'unknown-word-detector.rule-file' => '/home/murawaki/public_html/egnee/data/undefRule.storable',
+    'unknown-word-detector.decomposition-rule-file' => '/home/murawaki/research/lebyr/data/decomposition.storable',
+    'unknown-word-detector.repname-list' => '/home/murawaki/research/lebyr/data/cfRepname.storable',
+    'unknown-word-detector.repname-ngram' => '/home/murawaki/research/lebyr/data/repnameNgram.storable',
+    'context-acquirer.skip-extremities' => 0,
+    'suffix-list.path' => '/home/murawaki/research/lebyr/data',
+    'main-dictionary.original-path' => '/home/murawaki/download/juman/dic',
+    'main-dictionary.db-path' => '/home/murawaki/research/lebyr/data',
+    'working-dictionary.path' => '/home/murawaki/public_html/egnee/dic',
+    'working-dictionary.do-load' => 1,
+    'morpheme-variant-checker.unihan-db' => '/home/murawaki/research/lebyr/data/unihan.storable',
+}

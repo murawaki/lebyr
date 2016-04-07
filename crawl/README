@@ -1,0 +1,44 @@
+########################################
+#     クロールデータからの語彙獲得     #
+########################################
+
+日々のクロールデータから語彙獲得を行う。休眠中。
+
+
+- 獲得元データ
+  /yew/crawler/crawl-data-daily/xml
+  に置かれる。
+  cron で起動されるスクリプトが前日にクロールしたページをXML化して置く。
+  データは YYYYMMDD 形式のディレクトリに置かれる。
+  処理が完了したら YYYYMMDD.done ファイルが生成される。
+
+- 獲得の方針
+  - データが多いので N 並列で語彙獲得を行う
+  - あとでデータをマージする
+
+- 獲得器の設計: master-worker model
+  - master (1): 全体の管理
+  - worker (N):
+    - master から指定されたページから語彙獲得
+    - master からの命令に応じて辞書を供出
+    - master からの命令に応じて終了
+  - seeker (1): クロールデータを見に行って、準備ができたデータを master に登録
+  - merger (1): master に辞書供出を依頼
+    - TODO: mergeDict.pl, postprocess.pl の実行の自動化
+
+- 実装
+  - Event::RPC を使用
+  - master は単一なので CrawlerMaster::Proxy というダミーから本体の CrawlerMaster を呼び出す
+    - 機能を追加するには両者にメソッドを定義したうえで master.pl にも登録する
+  - 名前が微妙なのでかえるかも
+
+- 起動方法
+  - master/worker と seeker は online.sh から起動している
+  - seeker は別に人手で起動した方が良いかもしれない
+  - merger は人手で不定期に起動している
+    - TODO: cron から呼び出す
+
+- TODO
+  - seeker が先に進まない
+    - クロールデータの XML 化が何らかの理由で失敗したとき、
+      YYYYMMDD.done ファイルが生成されるのをいつまでも待ち続ける

@@ -1,0 +1,8 @@
+Changes
+Makefile.PL
+MANIFEST
+ppport.h
+README
+Tx.xs
+t/Text-Trie-Tx.t
+lib/Text/Trie/Tx.pm

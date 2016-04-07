@@ -1,0 +1,91 @@
+########################################
+#                                      #
+#            suffix の構築             #
+#                                      #
+########################################
+
+1. suffix/extractSuffixes.pl を対象文書に適用して生のサフィックスを抽出
+   tsukuba000:/data/0/murawaki/suffix 以下に一式
+
+[ここで divergence の調査]
+
+2. suffix/suffixList.pl を抽出されたデータに適用し、リスト形式に変換
+   tsukuba000:/data/0/murawaki/suffix/list 以下に一式
+
+3. suffix/mergeSuffixList.pl でリストをマージ
+4. suffix/suffixThres.pl でサフィックスを足きり
+   足きり前にマージする場合は、大量のメモリが必要なので、
+   tsukuba や kyutech を使う。sshfs で chiba にアクセス。
+   suffixThres.pl を先に適用すると chiba でもメモリに載る。
+
+[ここで coverage の調査]
+
+5. suffix/compressSuffixList.pl で suffixThres を圧縮
+
+
+
+########################################
+#                                      #
+#   suffix による divergence の調査    #
+#                                      #
+########################################
+
+# 準備
+# /data/0/murawaki/suffix/list/data に suffix list を用意
+
+# make-divergence-stat.pl を実行
+tsukuba000:/data/0/murawaki/suffix/divergence/tasks を実行
+
+# merge-divergence-stat.pl を実行
+# index の X を適当に設定
+perl ~/research/lebyr/suffix/fusana/merge-divergence-statt.pl --dir /data/0/murawaki/suffix/divergence/daata --index X > X
+
+# calcDivergence.pl を実行
+cd /data/0/murawaki/suffix/divergence/merge/result
+mkdir ../stat
+for f in *; do
+  echo $f
+  nice -19 perl /home/murawaki/research/lebyr/suffix/eval/calcDivergence.pl --input $f --index $f > ../stat/$f
+done
+
+# gnuplot
+set logscale x
+set key off
+plot "00"
+
+
+########################################
+#                                      #
+#      suffix の coverage の調査       #
+#                                      #
+########################################
+
+# 準備
+# /data/0/murawaki/suffix/list/data に suffix list を用意
+# /home/murawaki/research/lebyr/data/suffixThres を用意
+
+# coverage.pl を実行
+perl coverage.pl --dir /data/0/murawaki/suffix/list/data --compressed --debug > coverage.stat
+
+# グラフを描画
+gnuplot coverage.gpl
+
+########################################
+#                                      #
+#         fusana model の構築          #
+#                                      #
+########################################
+
+# merge-divergence-stat.pl を実行
+# index の X を適当に設定し、common, sahen, na, nano に出力
+perl ~/research/lebyr/suffix/fusana/merge-divergence-statt.pl --dir /data/0/murawaki/suffix/divergence/daata --index X > common
+
+# training data を作成
+perl ~/research/unknown/suffix/fusana/make-train-data.pl --input common sahen na nano --debug --thres=100 2>&1 > all.100 | nkf -eWu
+
+# 評価実験を行なう場合にはデータを分離
+head -n 32000 all.100 > train.100
+tail -n 835 all.100 > test.100
+
+# model を訓練
+perl ~/research/unknown/suffix/fusana/train.pl --type=pa --iter=10 --input all.100 --output ~/research/lebyr/data/fusana.model --debug --compact &

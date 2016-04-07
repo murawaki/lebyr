@@ -1,0 +1,17 @@
++{
+    'standardformat-document.use-knp-annotation' => 0,
+    'juman.rcfile' => '/home/murawaki/.jumanrc', # must be overridden
+    # 'knp.options' => '-tab -dpnd -check -timeout 600',
+    'knp.options' => '-tab -assignf -timeout 600',
+    'unknown-word-detector.rule-file' => '/home/murawaki/research/lebyr/data/undefRule.storable',
+    'unknown-word-detector.decomposition-rule-file' => '/home/murawaki/research/lebyr/data/decomposition.storable',
+    'unknown-word-detector.repname-list' => '/home/murawaki/research/lebyr/data/cfRepname.storable',
+    'unknown-word-detector.repname-ngram' => '/home/murawaki/research/lebyr/data/repnameNgram.storable',
+    'context-acquirer.skip-extremities' => 1,
+    'suffix-list.path' => '/home/murawaki/research/lebyr/data',
+    'main-dictionary.rc-path' => '/home/murawaki/.jumanrc',
+    'main-dictionary.db-path' => ['/home/murawaki/research/lebyr/data/dic', '/home/murawaki/research/lebyr/data/autodic', '/home/murawaki/research/lebyr/data/wikipediadic'],
+    'morpheme-variant-checker.unihan-db' => '/home/murawaki/research/lebyr/data/unihan.storable',
+    'analyzer-juman.jumanrc-autodic' => '/home/murawaki/.jumanrc.autodic',
+    'morpheme-usage-monitor.fusana-model' => '/home/murawaki/research/lebyr/data/fusana.model',
+}

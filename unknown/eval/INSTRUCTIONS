@@ -1,0 +1,36 @@
+########################################
+#                                      #
+#      獲得の評価実験に必要な準備      #
+#                                      #
+########################################
+
+# TSUBAKI のデータから語彙獲得
+/vine5/murawaki/spec で
+gxpc make -j seq
+または
+gxpc make -j
+
+
+# ここで獲得形態素を人手で評価
+## /vine5/murawaki/dic 以下のディレクトリにある
+## output.dic を取ってきて評価
+
+
+# 普通の JUMAN の辞書と拡張辞書の差分を得る
+gxpc make -j diff
+
+
+# 評価用の
+jumanDiffSeqEval.pl --input /vine5/murawaki/diff/XYZ.html --count N > /vine5/murawaki/diff/XYZ.eval.html
+
+
+# HTML 上で人手で正否を判定
+# 結果は diffEval.cgi に渡され、storable が作成される
+
+
+# 評価結果のカウント
+countDiffEval.pl XYZ.ddd.storable
+
+
+# 二つの評価結果の kappa 値
+kappa.pl XYZ.ddd.storable XYZ.eee.storable

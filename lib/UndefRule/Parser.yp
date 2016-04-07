@@ -1,0 +1,194 @@
+# -*- mode: perl -*-
+#
+# Parser.yp
+#
+# Grammar to parse SExpressions for Data::SExpression
+#
+#
+
+%{
+%}
+
+%%
+
+rule:  #empty
+     | '(' match_rule SYMBOL ')'    { $_[0]->YYAccept; return [$_[2], $_[3]]; }
+;
+
+match_rule: '(' sub_rule sub_rule sub_rule  ')' { return [$_[2], $_[3], $_[4]]; }
+;
+
+sub_rule:  '*'                 { return 'ANY'; }
+         | '|'                 { return 'NONEXIST'; }
+         | '^' mrph_expression { unshift (@{$_[2]}, 0); return $_[2]; }
+         | mrph_expression     { unshift (@{$_[1]}, 1); return $_[1]; }
+;
+
+mrph_expression: '[' mrph_rule_list ']'    { return $_[2]; }
+;
+
+mrph_rule_list:  mrph_rule                 { return [$_[1]]; }
+               | mrph_rule_list mrph_rule  { push (@{$_[1]}, $_[2]); return $_[1]; }
+;
+
+mrph_rule:   '(' SYMBOL ')'                { return [1, [$_[2]]]; }
+           | '^' '(' SYMBOL ')'            { return [0, [$_[3]]]; }
+           | '(' SYMBOL expression ')'     { return [1, [$_[2], $_[3]]]; }
+           | '^' '(' SYMBOL expression ')' { return [0, [$_[3], $_[4]]]; }
+;
+
+expression:  SYMBOL
+           | NUMBER
+;
+
+%%
+
+sub set_input {
+    my $self = shift;
+
+    my $input = shift or die(__PACKAGE__ . "::set_input called with 0 arguments");
+    $self->YYData->{INPUT} = $input;
+}
+
+sub set_handler {
+    my $self = shift;
+    my $handler = shift or die(__PACKAGE__ . "::set_handler called with 0 arguments");
+    $self->YYData->{HANDLER} = $handler;
+}
+
+sub handler {
+    my $self = shift;
+    return $self->YYData->{HANDLER};
+}
+
+sub unparsed_input {
+    my $self = shift;
+    return substr($self->YYData->{INPUT}, pos($self->YYData->{INPUT}));
+}
+
+sub lexer {
+    my ($self) = shift;
+    $self->YYData->{INPUT} or return ('', undef);
+
+    for($self->YYData->{INPUT}) {
+	$_ =~ /\G \s* (?: \# .* \s* )* /gcx;   # ignore comment1
+	$_ =~ /\G \s* (?: \; .* \s* )* /gcx;   # ignore comment2
+
+	# \d では全角数字も認識されてしまうので駄目
+	/\G ([+-]? [0-9]+ (?:[.][0-9]*)?) /gcx
+	    || /\G ([+-]? [.] [0-9]+) /gcx
+	    and return ('NUMBER', $1);
+
+	my $str = $_;
+	my $symbol = '';
+	my $sym_re = qr{[A-Za-z_\-\:]};
+	my $pos = pos;
+	my $i = $pos;
+	while (1) {
+	    my $c = substr ($str, $i, 1);
+	    my $o = ord ($c);
+
+	    if ($c =~ /$sym_re/ || $o >= 0x0080) {
+		$symbol .= $c;
+	    } elsif ($i > $pos && $c =~ /\d|\./) {
+		$symbol .= $c;
+	    } else {
+		last;
+	    }
+	    last unless (++$i < length ($str));
+	}
+	if (length ($symbol)) {
+	    pos = $i;
+	    return ('SYMBOL', $symbol);
+	}
+	pos = $pos;
+
+	/\G ([()\[\]\*\|\^])/gcx
+	    and return ($1, $1);
+
+	return ('', undef);
+    }
+}
+
+# sub lexer {
+#     my $self = shift;
+
+#     $self->YYData->{INPUT} or return ('', undef);
+
+# #     my $symbol_char = qr{[*!\$[:alpha:]\p{Hiragana}\p{Katakana}\p{Han}\?<>=/+:_{}-]};
+# #    my $symbol_char = qr{[*!\$\p{InNonNumControl}\p{InCJKSymbolsAndPunctuation}\?<>=/+:_{}-]};
+# #    my $symbol_char = qr{([*!\$[:alpha:]\?<>=/+:_{}-]|\p{InCJKSymbolsAndPunctuation}|\p{InHalfwidthAndFullwidthForms}|\p{InLatin1Supplement}|\p{InLetterlikeSymbols}|\p{InHiragana}|\p{InKatakana})};
+
+#     for($self->YYData->{INPUT}) {
+#         $_ =~ /\G \s* (?: ; .* \s* )* /gcx;   # ignore comment
+
+# # \d では全角数字も認識されてしまうので駄目
+# #         /\G ([+-]? \d+ (?:[.]\d*)?) /gcx
+# #         || /\G ([+-]? [.] \d+) /gcx
+# #           and return ('NUMBER', $1);
+
+#         /\G ([+-]? [0-9]+ (?:[.][0-9]*)?) /gcx
+#         || /\G ([+-]? [.] [0-9]+) /gcx
+#           and return ('NUMBER', $1);
+
+# #	my ($vv, $pos) = $self->get_symbol ($_);
+# #	pos = $pos;
+# #	return ('SYMBOL', $vv) if (defined ($vv));
+
+# 	my $str = $_;
+# 	my $symbol = '';
+# 	my $sym_re = qr{[*!\$\?<>=/+:_{}-]};
+# 	my $pos = pos;
+# 	my $i = $pos;
+# 	while (1) {
+# 	    my $c = substr ($str, $i, 1);
+# 	    my $o = ord ($c);
+
+# 	    if ($c =~ /$sym_re/ || $o >= 0x0080) {
+# 		$symbol .= $c;
+# 	    } elsif ($i > $pos && $c =~ /\d|\./) {
+# 		$symbol .= $c;
+# 	    } else {
+# 		last;
+# 	    }
+# 	    last unless (++$i < length ($str));
+# 	}
+# 	if (length ($symbol)) {
+# 	    pos = $i;
+# 	    return ('SYMBOL', $symbol);
+# 	}
+# 	pos = $pos;
+
+# # 	my $pos = pos;
+# #         /\G ($symbol_char ($symbol_char | \d | [.] )*)/gcx
+# #           and return ('SYMBOL', $1);
+# # 	pos = $pos unless (defined ($pos));
+
+#         /\G (\| [^|]* \|) /gcx
+#           and return ('SYMBOL', $1);
+
+#         /\G " ([^"\\]* (?: \\. [^"\\]*)*) "/gcx
+#           and return ('STRING', $1 || "");
+
+#         /\G ([().])/gcx
+#           and return ($1, $1);
+
+#         /\G ([`',]) /gcx
+#           and return ('QUOTE', $quotes{$1});
+
+#         return ('', undef);
+#     }
+# }
+
+
+sub error {
+    my ($self) = @_;
+    my ($tok, $val) = $self->YYLexer->($self);
+    die("Parse error near: '" . $self->unparsed_input . "'");
+    return undef;
+}
+
+sub parse {
+    my ($self) = @_;
+    return $self->YYParse (yylex => \&lexer, yyerror => \&error);
+}

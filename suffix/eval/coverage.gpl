@@ -1,0 +1,21 @@
+# plot coverage graphs
+#
+# input: coverage.stat
+# output: unique.eps
+#         coverage.eps
+#
+set key left
+set xlabel "# of suffixes"
+set ylabel "# of unique suffixes"
+set xtics 0, 1000000000
+set xrange [0 : ]
+set term postscript eps enhanced color "ArialMT" 26
+set output "unique.eps"
+plot "coverage.stat" using 2:4 with linespoints title "POS sensitive", "coverage.stat" using 2:3 with linespoints title "POS insensitive"
+
+set xlabel "# of suffixes"
+set ylabel "coverage"
+set xrange [0 : ]
+set yrange [0.999 : 1.0001]
+set output "coverage.eps"
+plot "coverage.stat" using 2:6 with linespoints notitle

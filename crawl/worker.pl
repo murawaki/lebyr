@@ -62,7 +62,7 @@ sub main {
 
 	error_cb => sub {
 	    my ($client, $error) = @_;
-	    print STDERR ("An RPC error occured: $error\n");
+	    print STDERR ("A RPC error occured: $error\n");
 	    $client->disconnect;
 	    exit;
 	},

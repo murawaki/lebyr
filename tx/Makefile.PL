@@ -4,7 +4,7 @@ use 5.008008;
 use ExtUtils::MakeMaker;
 
 our $CC = 'g++';
-our $tx_prefix = '$(HOME)/local'; # bad hack
+our $tx_prefix = '/usr/local/';
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.

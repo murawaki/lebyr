@@ -93,8 +93,9 @@ Requirements
     * CDB_File
     * Parse::Yapp
     * Unicode::Japanese
-    * **TODO** 残りのモジュールの列挙
-
+    * Class::Accessor::Fast
+    * Class::Data::Inheritable
+    * IO::Scalar
 
 Setup
 -----------

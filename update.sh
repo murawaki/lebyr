@@ -10,9 +10,10 @@ fi
 MAKEINT="$JUMAN_PREFIX/libexec/juman/makeint"
 DICSORT="$JUMAN_PREFIX/libexec/juman/dicsort"
 MKDARTS="$JUMAN_PREFIX/libexec/juman/mkdarts"
+MAKEPAT="$JUMAN_PREFIX/libexec/juman/makepat"
 
 usage () {
-    echo "usage: $0 -d /home/murawaki/research/lebyr/dic"
+    echo "usage: $0 -d JUMAN_SOURCE_DIC_DIR"
     exit 1
 }
 
@@ -44,6 +45,11 @@ for dicfile in *.dic; do
 done
 
 $DICSORT $tmpfile > jumandic.dat
-$MKDARTS jumandic.dat jumandic.da jumandic.bin
+if [ -x "$MKDARTS" ]; then
+    $MKDARTS jumandic.dat jumandic.da jumandic.bin
+else
+    # older version
+    $MAKEPAT
+fi
 
 rm -f $tmpfile

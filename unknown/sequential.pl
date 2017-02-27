@@ -67,7 +67,6 @@ my ($logger, $simpleMonitor);
 if ($opt->{raw}) {
     my $file = IO::File->new($opt->{raw}) or die;
     $file->binmode(':utf8');
-    $egnee->processRawString(''); #juman-perlのバグ回避。最初の解析結果が必ず失敗するので先頭行の解析前に空文字を解析する。
     while ((my $line = $file->getline)) {
 	chomp($line);
 	$egnee->processRawString($line);
